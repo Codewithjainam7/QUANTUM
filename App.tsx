@@ -190,75 +190,104 @@ export default function App() {
   const [booting, setBooting] = useState(false);
 
   const fetchProfile = async (userId: string) => {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
-      
-      if (data) {
-          setProfile({
-              title: data.title || '',
-              skills: data.skills || [],
-              experienceYears: data.experience_years || 0,
-              targetRole: data.target_role || '',
-              location: data.location || ''
-          });
-          // Update user onboarding state from DB profile if needed
-          if (data.onboarding_completed && user) {
-             setUser(prev => prev ? ({ ...prev, onboardingCompleted: true }) : null);
+      try {
+          const { data, error } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', userId)
+            .single();
+          
+          if (data) {
+              setProfile({
+                  title: data.title || '',
+                  skills: data.skills || [],
+                  experienceYears: data.experience_years || 0,
+                  targetRole: data.target_role || '',
+                  location: data.location || ''
+              });
+              // Update user onboarding state from DB profile if needed
+              if (data.onboarding_completed && user) {
+                 setUser(prev => prev ? ({ ...prev, onboardingCompleted: true }) : null);
+              }
+          } else {
+              // If no profile exists yet, use default/empty
+              setProfile(MOCK_PROFILE);
           }
-      } else {
-          // If no profile exists yet, use default/empty
+      } catch (error) {
+          console.error("Error fetching profile:", error);
           setProfile(MOCK_PROFILE);
       }
   };
 
   useEffect(() => {
     // Check active session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        setUser({
-            id: session.user.id,
-            name: session.user.user_metadata.full_name || session.user.email?.split('@')[0] || 'User',
-            email: session.user.email!,
-            avatar: session.user.user_metadata.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${session.user.email}`,
-            role: session.user.user_metadata.role as any, // Map metadata role
-            onboardingCompleted: false // Will check DB
-        });
-        fetchProfile(session.user.id);
-      }
-      setLoading(false);
-    });
+    const initAuth = async () => {
+        try {
+            const { data: { session }, error } = await supabase.auth.getSession();
+            
+            if (error) {
+                console.error("Session error:", error);
+                setLoading(false);
+                return;
+            }
+
+            if (session?.user) {
+                const newUser: User = {
+                    id: session.user.id,
+                    name: session.user.user_metadata.full_name || session.user.email?.split('@')[0] || 'User',
+                    email: session.user.email!,
+                    avatar: session.user.user_metadata.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${session.user.email}`,
+                    role: session.user.user_metadata.role as any,
+                    onboardingCompleted: false
+                };
+                setUser(newUser);
+                await fetchProfile(session.user.id);
+            }
+        } catch (error) {
+            console.error("Init auth error:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    initAuth();
 
     // Listen for auth changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      console.log("Auth state changed:", _event, session?.user?.email);
+      
       if (session?.user) {
-         setUser({
+         const newUser: User = {
             id: session.user.id,
             name: session.user.user_metadata.full_name || session.user.email?.split('@')[0] || 'User',
             email: session.user.email!,
             avatar: session.user.user_metadata.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${session.user.email}`,
-            role: session.user.user_metadata.role as any, // Map metadata role
+            role: session.user.user_metadata.role as any,
             onboardingCompleted: false
-        });
-        fetchProfile(session.user.id);
+        };
+        setUser(newUser);
+        await fetchProfile(session.user.id);
       } else {
         setUser(null);
         setProfile(null);
       }
       setBooting(false);
+      setLoading(false);
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
   const logout = async () => {
-    await supabase.auth.signOut();
-    setUser(null);
-    setProfile(null);
+    try {
+        await supabase.auth.signOut();
+        setUser(null);
+        setProfile(null);
+    } catch (error) {
+        console.error("Logout error:", error);
+    }
   };
 
   const completeOnboarding = async (prefs: OnboardingPreferences) => {
@@ -288,7 +317,7 @@ export default function App() {
         const updatedUser = { ...user, onboardingCompleted: true };
         setUser(updatedUser);
         
-        setTimeout(() => setBooting(false), 2000); // Simulate processing
+        setTimeout(() => setBooting(false), 2000);
     } catch (e) {
         console.error("Onboarding save failed", e);
         setBooting(false);
@@ -299,17 +328,22 @@ export default function App() {
     if (!user) return;
     setProfile(p);
     
-    await supabase.from('profiles').upsert({
-        id: user.id,
-        title: p.title,
-        skills: p.skills,
-        experience_years: p.experienceYears,
-        target_role: p.targetRole,
-        location: p.location,
-        updated_at: new Date()
-    });
+    try {
+        await supabase.from('profiles').upsert({
+            id: user.id,
+            title: p.title,
+            skills: p.skills,
+            experience_years: p.experienceYears,
+            target_role: p.targetRole,
+            location: p.location,
+            updated_at: new Date()
+        });
+    } catch (error) {
+        console.error("Update profile error:", error);
+    }
   };
 
+  // Show loading screen
   if (loading || booting) {
     return <BootScreen />;
   }
@@ -318,12 +352,12 @@ export default function App() {
     <AuthContext.Provider value={{ user, profile, logout, completeOnboarding, updateProfile, refreshProfile: async () => { if(user) await fetchProfile(user.id) } }}>
       <HashRouter>
         <Routes>
-          <Route path="/" element={!user ? <Landing /> : <Navigate to="/dashboard" />} />
-          <Route path="/features" element={!user ? <Features /> : <Navigate to="/dashboard" />} />
-          <Route path="/pricing" element={!user ? <Pricing /> : <Navigate to="/dashboard" />} />
-          <Route path="/how-it-works" element={!user ? <HowItWorks /> : <Navigate to="/dashboard" />} />
+          <Route path="/" element={!user ? <Landing /> : <Navigate to="/dashboard" replace />} />
+          <Route path="/features" element={!user ? <Features /> : <Navigate to="/dashboard" replace />} />
+          <Route path="/pricing" element={!user ? <Pricing /> : <Navigate to="/dashboard" replace />} />
+          <Route path="/how-it-works" element={!user ? <HowItWorks /> : <Navigate to="/dashboard" replace />} />
           <Route path="/onboarding" element={
-            user && !user.onboardingCompleted && user.role !== 'admin' ? <Onboarding /> : <Navigate to={user ? "/dashboard" : "/"} />
+            user && !user.onboardingCompleted && user.role !== 'admin' ? <Onboarding /> : <Navigate to={user ? "/dashboard" : "/"} replace />
           } />
           <Route path="/*" element={
             user ? (
@@ -338,14 +372,14 @@ export default function App() {
                     <Route path="/progress" element={<Progress />} />
                     <Route path="/profile" element={<ProfileBuilder />} />
                     <Route path="/settings" element={<AppSettings />} />
-                    <Route path="*" element={<Navigate to="/dashboard" />} />
+                    <Route path="*" element={<Navigate to="/dashboard" replace />} />
                   </Routes>
                 </AppLayout>
               ) : (
-                <Navigate to="/onboarding" />
+                <Navigate to="/onboarding" replace />
               )
             ) : (
-              <Navigate to="/" />
+              <Navigate to="/" replace />
             )
           } />
         </Routes>
