@@ -15,7 +15,11 @@ import {
   Cell
 } from 'recharts';
 import { INITIAL_SALARY_DATA } from '../constants';
-import { TrendingUp, Briefcase, Target, Award, ExternalLink, MapPin, X, BookOpen, Check, ShieldCheck, Users } from 'lucide-react';
+import { 
+  TrendingUp, Briefcase, Target, Award, ExternalLink, MapPin, X, BookOpen, 
+  Check, ShieldCheck, Users, Brain, Gavel, AlertTriangle, FileText, 
+  CheckCircle, Download, Upload, Search, Eye, BarChart3, PieChart, Activity 
+} from 'lucide-react';
 import { GlassCard, NeonButton } from './ui/Visuals';
 import { AdminResumeScanner } from './AdminResumeScanner';
 
@@ -52,12 +56,143 @@ const RECENT_JOBS = [
     }
 ];
 
+// Admin Types & Data
+interface Candidate {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  experience: number;
+  matchScore: number;
+  status: 'passed' | 'failed' | 'pending';
+  flags: string[];
+  appliedDate: string;
+}
+
+const MOCK_CANDIDATES: Candidate[] = [
+  {
+    id: '1',
+    name: 'Sarah Chen',
+    email: 'sarah.chen@email.com',
+    role: 'Senior Frontend Engineer',
+    experience: 6,
+    matchScore: 94,
+    status: 'passed',
+    flags: [],
+    appliedDate: '2025-01-08'
+  },
+  {
+    id: '2',
+    name: 'Michael Rodriguez',
+    email: 'm.rodriguez@email.com',
+    role: 'Full Stack Developer',
+    experience: 4,
+    matchScore: 78,
+    status: 'passed',
+    flags: [],
+    appliedDate: '2025-01-07'
+  },
+  {
+    id: '3',
+    name: 'Emily Thompson',
+    email: 'emily.t@email.com',
+    role: 'Backend Engineer',
+    experience: 2,
+    matchScore: 52,
+    status: 'failed',
+    flags: ['Insufficient Experience', 'Missing Required Skills'],
+    appliedDate: '2025-01-06'
+  },
+  {
+    id: '4',
+    name: 'David Kim',
+    email: 'david.kim@email.com',
+    role: 'DevOps Engineer',
+    experience: 8,
+    matchScore: 88,
+    status: 'passed',
+    flags: [],
+    appliedDate: '2025-01-05'
+  },
+  {
+    id: '5',
+    name: 'Jessica Martinez',
+    email: 'j.martinez@email.com',
+    role: 'UI/UX Designer',
+    experience: 3,
+    matchScore: 45,
+    status: 'failed',
+    flags: ['Bias Detected - Age Markers', 'Role Mismatch'],
+    appliedDate: '2025-01-04'
+  }
+];
+
+const ADMIN_STATS = {
+  totalApplications: 247,
+  passedCandidates: 156,
+  failedCandidates: 91,
+  avgMatchScore: 76,
+  biasDetected: 12,
+  duplicatesFound: 8
+};
+
+// Admin Components
+const AdminStatCard = ({ title, value, icon: Icon, color, trend }: any) => (
+  <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm hover:shadow-md transition-shadow">
+    <div className="flex items-center justify-between mb-4">
+      <div className={`p-3 rounded-xl ${color}`}>
+        <Icon size={24} />
+      </div>
+      <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">
+        {trend}
+      </span>
+    </div>
+    <h3 className="text-sm text-slate-500 font-bold uppercase tracking-wider mb-1">{title}</h3>
+    <p className="text-3xl font-bold text-slate-900">{value}</p>
+  </div>
+);
+
+const CandidateRow = ({ candidate, onClick }: { candidate: Candidate; onClick: () => void }) => (
+  <div
+    className="flex items-center justify-between p-4 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors cursor-pointer"
+    onClick={onClick}
+  >
+    <div className="flex items-center gap-4">
+      <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold">
+        {candidate.name[0]}
+      </div>
+      <div>
+        <p className="font-bold text-slate-900">{candidate.name}</p>
+        <p className="text-sm text-slate-500">{candidate.role}</p>
+      </div>
+    </div>
+    <div className="flex items-center gap-4">
+      <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+        candidate.status === 'passed'
+          ? 'bg-emerald-100 text-emerald-700'
+          : 'bg-red-100 text-red-700'
+      }`}>
+        {candidate.status.toUpperCase()}
+      </span>
+      <span className="text-sm font-bold text-slate-600">{candidate.matchScore}%</span>
+      <Eye size={18} className="text-slate-400" />
+    </div>
+  </div>
+);
+
 const Dashboard = () => {
   const { user, profile } = useAuth();
   const navigate = useNavigate();
   const [selectedSkill, setSelectedSkill] = useState<any | null>(null);
   const [appliedJobs, setAppliedJobs] = useState<number[]>([]);
   const [showResumeScanner, setShowResumeScanner] = useState(false);
+
+  // Admin State
+  const [adminTab, setAdminTab] = useState<'overview' | 'candidates' | 'analytics'>('overview');
+  const [candidates] = useState<Candidate[]>(MOCK_CANDIDATES);
+  const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null);
+  const [filterStatus, setFilterStatus] = useState<'all' | 'passed' | 'failed'>('all');
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Updated Admin Check
   const isAdmin = user?.email?.includes('admin') || user?.role === 'admin';
@@ -73,56 +208,376 @@ const Dashboard = () => {
 
   const handleApply = (id: number) => {
       setAppliedJobs([...appliedJobs, id]);
-      // Simulate API call
       setTimeout(() => alert("Application sent successfully!"), 100);
   };
 
+  // Admin Functions
+  const filteredCandidates = candidates.filter(c => {
+    const matchesFilter = filterStatus === 'all' || c.status === filterStatus;
+    const matchesSearch = c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         c.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         c.role.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesFilter && matchesSearch;
+  });
+
+  const handleExport = () => {
+    const csvContent = [
+      ['Name', 'Email', 'Role', 'Experience', 'Match Score', 'Status', 'Flags'],
+      ...filteredCandidates.map(c => [
+        c.name, c.email, c.role, c.experience, c.matchScore, c.status, c.flags.join('; ')
+      ])
+    ].map(row => row.join(',')).join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `candidates_${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+  };
+
+  // ADMIN VIEW
+  if (isAdmin) {
+    return (
+      <div className="space-y-8">
+        <AdminResumeScanner isOpen={showResumeScanner} onClose={() => setShowResumeScanner(false)} />
+
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-3">
+              <ShieldCheck className="text-indigo-600" size={32} />
+              Admin Control Center
+            </h1>
+            <p className="text-slate-500 mt-1">Recruitment Intelligence Dashboard</p>
+          </div>
+          <button
+            onClick={() => setShowResumeScanner(true)}
+            className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all shadow-lg"
+          >
+            <Upload size={20} />
+            Bulk Resume Scanner
+          </button>
+        </div>
+
+        {/* Navigation Tabs */}
+        <div className="flex gap-2 border-b border-slate-200">
+          {[
+            { id: 'overview', label: 'Overview', icon: BarChart3 },
+            { id: 'candidates', label: 'Candidates', icon: Users },
+            { id: 'analytics', label: 'Analytics', icon: PieChart }
+          ].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setAdminTab(tab.id as any)}
+              className={`flex items-center gap-2 px-6 py-3 font-bold transition-all ${
+                adminTab === tab.id
+                  ? 'text-indigo-600 border-b-2 border-indigo-600'
+                  : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              <tab.icon size={18} />
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Admin Content */}
+        {adminTab === 'overview' && (
+          <div className="space-y-6">
+            {/* Stats Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <AdminStatCard
+                title="Total Applications"
+                value={ADMIN_STATS.totalApplications}
+                icon={FileText}
+                color="bg-blue-50 text-blue-600"
+                trend="+12%"
+              />
+              <AdminStatCard
+                title="Passed"
+                value={ADMIN_STATS.passedCandidates}
+                icon={CheckCircle}
+                color="bg-emerald-50 text-emerald-600"
+                trend="+8%"
+              />
+              <AdminStatCard
+                title="Failed"
+                value={ADMIN_STATS.failedCandidates}
+                icon={AlertTriangle}
+                color="bg-red-50 text-red-600"
+                trend="-3%"
+              />
+              <AdminStatCard
+                title="Avg Match Score"
+                value={`${ADMIN_STATS.avgMatchScore}%`}
+                icon={TrendingUp}
+                color="bg-purple-50 text-purple-600"
+                trend="+5%"
+              />
+            </div>
+
+            {/* AI Processing Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl border border-indigo-100 p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 bg-indigo-100 rounded-lg text-indigo-600">
+                    <Brain size={20} />
+                  </div>
+                  <h3 className="font-bold text-slate-900">Multi-Agent Analysis</h3>
+                </div>
+                <p className="text-2xl font-bold text-indigo-600 mb-2">98.5%</p>
+                <p className="text-sm text-slate-600">Accuracy Rate</p>
+              </div>
+
+              <div className="bg-gradient-to-br from-pink-50 to-rose-50 rounded-2xl border border-pink-100 p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 bg-pink-100 rounded-lg text-pink-600">
+                    <AlertTriangle size={20} />
+                  </div>
+                  <h3 className="font-bold text-slate-900">Bias Detection</h3>
+                </div>
+                <p className="text-2xl font-bold text-pink-600 mb-2">{ADMIN_STATS.biasDetected}</p>
+                <p className="text-sm text-slate-600">Flags Raised</p>
+              </div>
+
+              <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-2xl border border-emerald-100 p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 bg-emerald-100 rounded-lg text-emerald-600">
+                    <Gavel size={20} />
+                  </div>
+                  <h3 className="font-bold text-slate-900">Processing Speed</h3>
+                </div>
+                <p className="text-2xl font-bold text-emerald-600 mb-2">45 sec</p>
+                <p className="text-sm text-slate-600">Avg per Resume</p>
+              </div>
+            </div>
+
+            {/* Recent Activity */}
+            <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+              <h3 className="text-lg font-bold text-slate-900 mb-4">Recent Applications</h3>
+              <div className="space-y-3">
+                {candidates.slice(0, 5).map(candidate => (
+                  <CandidateRow
+                    key={candidate.id}
+                    candidate={candidate}
+                    onClick={() => setSelectedCandidate(candidate)}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {adminTab === 'candidates' && (
+          <div className="space-y-6">
+            {/* Filters */}
+            <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+              <div className="flex flex-col md:flex-row gap-4">
+                <div className="flex-1 relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+                  <input
+                    type="text"
+                    placeholder="Search candidates..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  {['all', 'passed', 'failed'].map(status => (
+                    <button
+                      key={status}
+                      onClick={() => setFilterStatus(status as any)}
+                      className={`px-4 py-3 rounded-xl font-bold capitalize transition-all ${
+                        filterStatus === status
+                          ? 'bg-indigo-600 text-white'
+                          : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+                      }`}
+                    >
+                      {status}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  onClick={handleExport}
+                  className="flex items-center gap-2 px-4 py-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-all"
+                >
+                  <Download size={20} />
+                  Export CSV
+                </button>
+              </div>
+            </div>
+
+            {/* Candidates List */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+              <div className="p-6 border-b border-slate-200 bg-slate-50">
+                <h3 className="font-bold text-slate-900">
+                  {filteredCandidates.length} Candidates
+                </h3>
+              </div>
+              <div className="divide-y divide-slate-100">
+                {filteredCandidates.map(candidate => (
+                  <div key={candidate.id} className="p-6 hover:bg-slate-50 transition-colors">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-lg">
+                          {candidate.name[0]}
+                        </div>
+                        <div>
+                          <p className="font-bold text-slate-900 text-lg">{candidate.name}</p>
+                          <p className="text-sm text-slate-500">{candidate.email}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <span className={`px-4 py-2 rounded-xl text-sm font-bold ${
+                          candidate.status === 'passed'
+                            ? 'bg-emerald-100 text-emerald-700'
+                            : 'bg-red-100 text-red-700'
+                        }`}>
+                          {candidate.status.toUpperCase()}
+                        </span>
+                        <button
+                          onClick={() => setSelectedCandidate(candidate)}
+                          className="px-4 py-2 bg-indigo-50 text-indigo-600 rounded-xl font-bold hover:bg-indigo-100 transition-colors"
+                        >
+                          View Details
+                        </button>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-4 text-sm">
+                      <div>
+                        <span className="text-slate-500">Role:</span>
+                        <span className="ml-2 font-bold text-slate-900">{candidate.role}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500">Experience:</span>
+                        <span className="ml-2 font-bold text-slate-900">{candidate.experience} years</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500">Match Score:</span>
+                        <span className="ml-2 font-bold text-indigo-600">{candidate.matchScore}%</span>
+                      </div>
+                    </div>
+                    {candidate.flags.length > 0 && (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {candidate.flags.map((flag, i) => (
+                          <span key={i} className="px-3 py-1 bg-red-50 text-red-600 text-xs font-bold rounded-lg border border-red-100">
+                            {flag}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {adminTab === 'analytics' && (
+          <div className="space-y-6">
+            <div className="bg-white rounded-2xl border border-slate-200 p-8 shadow-sm text-center">
+              <Activity size={48} className="mx-auto text-slate-300 mb-4" />
+              <h3 className="text-xl font-bold text-slate-900 mb-2">Analytics Coming Soon</h3>
+              <p className="text-slate-500">Advanced analytics and reporting features will be available here.</p>
+            </div>
+          </div>
+        )}
+
+        {/* Candidate Detail Modal */}
+        <AnimatePresence>
+          {selectedCandidate && (
+            <MotionDiv
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4"
+              onClick={() => setSelectedCandidate(null)}
+            >
+              <MotionDiv
+                initial={{ scale: 0.95, y: 20 }}
+                animate={{ scale: 1, y: 0 }}
+                exit={{ scale: 0.95, y: 20 }}
+                onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+              >
+                <div className="p-6 border-b border-slate-200 flex justify-between items-start">
+                  <div>
+                    <h2 className="text-2xl font-bold text-slate-900">{selectedCandidate.name}</h2>
+                    <p className="text-slate-500">{selectedCandidate.email}</p>
+                  </div>
+                  <button
+                    onClick={() => setSelectedCandidate(null)}
+                    className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+                <div className="p-6 space-y-6">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-slate-50 p-4 rounded-xl">
+                      <p className="text-xs text-slate-500 uppercase font-bold mb-1">Role</p>
+                      <p className="font-bold text-slate-900">{selectedCandidate.role}</p>
+                    </div>
+                    <div className="bg-slate-50 p-4 rounded-xl">
+                      <p className="text-xs text-slate-500 uppercase font-bold mb-1">Experience</p>
+                      <p className="font-bold text-slate-900">{selectedCandidate.experience} years</p>
+                    </div>
+                    <div className="bg-slate-50 p-4 rounded-xl">
+                      <p className="text-xs text-slate-500 uppercase font-bold mb-1">Match Score</p>
+                      <p className="font-bold text-indigo-600 text-2xl">{selectedCandidate.matchScore}%</p>
+                    </div>
+                    <div className="bg-slate-50 p-4 rounded-xl">
+                      <p className="text-xs text-slate-500 uppercase font-bold mb-1">Status</p>
+                      <p className={`font-bold capitalize ${
+                        selectedCandidate.status === 'passed' ? 'text-emerald-600' : 'text-red-600'
+                      }`}>
+                        {selectedCandidate.status}
+                      </p>
+                    </div>
+                  </div>
+                  {selectedCandidate.flags.length > 0 && (
+                    <div className="bg-red-50 border border-red-100 rounded-xl p-4">
+                      <p className="text-sm font-bold text-red-600 mb-2">Flags Detected:</p>
+                      <ul className="space-y-1">
+                        {selectedCandidate.flags.map((flag, i) => (
+                          <li key={i} className="text-sm text-red-700 flex items-center gap-2">
+                            <AlertTriangle size={14} />
+                            {flag}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  <div className="flex gap-4">
+                    <button className="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all">
+                      Schedule Interview
+                    </button>
+                    <button className="flex-1 py-3 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-all">
+                      Send Email
+                    </button>
+                  </div>
+                </div>
+              </MotionDiv>
+            </MotionDiv>
+          )}
+        </AnimatePresence>
+      </div>
+    );
+  }
+
+  // REGULAR USER VIEW (Original Dashboard)
   return (
     <div className="space-y-8 relative">
-      <AdminResumeScanner isOpen={showResumeScanner} onClose={() => setShowResumeScanner(false)} />
-
       <header className="mb-8 flex justify-between items-end">
         <div>
             <h1 className="text-3xl font-display font-bold text-slate-900 mb-2">
                 Welcome back, <span className="text-primary">{user?.name.split(' ')[0]}</span>
             </h1>
-            <p className="text-slate-500 font-medium">Here's your {isAdmin ? 'admin' : 'career'} telemetry.</p>
+            <p className="text-slate-500 font-medium">Here's your career telemetry.</p>
         </div>
-        {isAdmin && (
-            <NeonButton 
-                onClick={() => setShowResumeScanner(true)}
-                className="shadow-lg shadow-indigo-500/20"
-            >
-                <ShieldCheck size={18} /> Admin Console
-            </NeonButton>
-        )}
       </header>
-
-      {/* Admin Quick Action (Only for Admin) */}
-      {isAdmin && (
-          <MotionDiv 
-            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-            className="p-1 rounded-[2rem] bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 mb-8"
-          >
-              <div className="bg-white rounded-[1.8rem] p-6 flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                      <div className="p-4 bg-indigo-50 text-indigo-600 rounded-2xl">
-                          <Users size={32} />
-                      </div>
-                      <div>
-                          <h3 className="text-lg font-bold text-slate-900">Bulk Resume Scanner</h3>
-                          <p className="text-slate-500 text-sm">Process 500+ resumes with Multi-Agent AI (Fairness & Bias Check).</p>
-                      </div>
-                  </div>
-                  <button 
-                    onClick={() => setShowResumeScanner(true)}
-                    className="px-6 py-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-all shadow-lg"
-                  >
-                      Launch Scanner
-                  </button>
-              </div>
-          </MotionDiv>
-      )}
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
