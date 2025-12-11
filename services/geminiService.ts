@@ -2,7 +2,21 @@ import { GoogleGenAI, GenerateContentResponse, Chat } from "@google/genai";
 import { AgentType, CourseRecommendation, ScannerCriteria, Candidate } from "../types";
 import { AGENT_SYSTEM_INSTRUCTIONS } from "../constants";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// Fix: Properly access Vite environment variables
+const getApiKey = () => {
+  // Check import.meta.env first (Vite standard)
+  if (import.meta.env.VITE_GEMINI_API_KEY) {
+    return import.meta.env.VITE_GEMINI_API_KEY;
+  }
+  // Fallback to API_KEY for backward compatibility
+  if (import.meta.env.API_KEY) {
+    return import.meta.env.API_KEY;
+  }
+  console.error("No Gemini API key found in environment variables");
+  return "";
+};
+
+const ai = new GoogleGenAI({ apiKey: getApiKey() });
 
 export const generateAgentResponse = async (
   message: string,
@@ -123,7 +137,6 @@ export const analyzeCandidateResume = async (
 
         const result = JSON.parse(response.text || "{}");
         
-        // Ensure ID is generated client-side if missing
         return {
             id: Math.random().toString(36).substr(2, 9),
             ...result
@@ -131,7 +144,6 @@ export const analyzeCandidateResume = async (
 
     } catch (error) {
         console.error("Bulk Analysis Error:", error);
-        // Return a dummy failed candidate on error to keep the loop going
         return {
             id: Math.random().toString(36).substr(2, 9),
             name: "Unknown Candidate (Error)",
