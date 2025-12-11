@@ -15,7 +15,6 @@ import {
   LineChart
 } from 'lucide-react';
 import { User, CareerProfile, OnboardingPreferences } from './types';
-import { MOCK_PROFILE } from './constants';
 import { AuroraBackground, CareerBackground, MouseSpotlight } from './components/ui/Visuals';
 import { supabase } from './services/supabaseClient';
 
@@ -205,17 +204,29 @@ export default function App() {
                   targetRole: data.target_role || '',
                   location: data.location || ''
               });
-              // Update user onboarding state from DB profile if needed
+              
               if (data.onboarding_completed && user) {
                  setUser(prev => prev ? ({ ...prev, onboardingCompleted: true }) : null);
               }
           } else {
-              // If no profile exists yet, use default/empty
-              setProfile(MOCK_PROFILE);
+              // Use empty profile instead of MOCK_PROFILE
+              setProfile({
+                  title: '',
+                  skills: [],
+                  experienceYears: 0,
+                  targetRole: '',
+                  location: ''
+              });
           }
       } catch (error) {
           console.error("Error fetching profile:", error);
-          setProfile(MOCK_PROFILE);
+          setProfile({
+              title: '',
+              skills: [],
+              experienceYears: 0,
+              targetRole: '',
+              location: ''
+          });
       }
   };
 
@@ -241,12 +252,15 @@ export default function App() {
                     onboardingCompleted: false
                 };
                 setUser(newUser);
-                await fetchProfile(session.user.id);
+                
+                // Fetch profile in background without blocking UI
+                fetchProfile(session.user.id).catch(console.error);
             }
         } catch (error) {
             console.error("Init auth error:", error);
         } finally {
-            setLoading(false);
+            // Always unlock UI quickly
+            setTimeout(() => setLoading(false), 100);
         }
     };
 
@@ -268,11 +282,14 @@ export default function App() {
             onboardingCompleted: false
         };
         setUser(newUser);
-        await fetchProfile(session.user.id);
+        
+        // Fetch profile in background
+        fetchProfile(session.user.id).catch(console.error);
       } else {
         setUser(null);
         setProfile(null);
       }
+      
       setBooting(false);
       setLoading(false);
     });
@@ -292,32 +309,35 @@ export default function App() {
 
   const completeOnboarding = async (prefs: OnboardingPreferences) => {
     if (!user) return;
+    
+    setBooting(true);
+    
     try {
-        setBooting(true);
-        // Save prefs to DB
-        await supabase.from('user_preferences').upsert({
-            user_id: user.id,
-            interests: prefs.interests,
-            cities: prefs.cities,
-            migration_willingness: prefs.migrationWillingness,
-            salary_target: prefs.salaryTarget,
-            salary_goal_2y: prefs.salaryGoal2Year,
-            risk_tolerance: prefs.riskTolerance,
-            learning_styles: prefs.learningStyles,
-            language: prefs.language
-        });
-
-        // Update profile onboarding status
-        await supabase.from('profiles').upsert({
-            id: user.id,
-            onboarding_completed: true,
-            updated_at: new Date()
-        }, { onConflict: 'id' });
+        // Parallelize database operations for faster execution
+        await Promise.all([
+            supabase.from('user_preferences').upsert({
+                user_id: user.id,
+                interests: prefs.interests,
+                cities: prefs.cities,
+                migration_willingness: prefs.migrationWillingness,
+                salary_target: prefs.salaryTarget,
+                salary_goal_2y: prefs.salaryGoal2Year,
+                risk_tolerance: prefs.riskTolerance,
+                learning_styles: prefs.learningStyles,
+                language: prefs.language
+            }),
+            supabase.from('profiles').upsert({
+                id: user.id,
+                onboarding_completed: true,
+                updated_at: new Date()
+            }, { onConflict: 'id' })
+        ]);
 
         const updatedUser = { ...user, onboardingCompleted: true };
         setUser(updatedUser);
         
-        setTimeout(() => setBooting(false), 2000);
+        // Shorter boot screen duration (1.5s instead of 2s)
+        setTimeout(() => setBooting(false), 1500);
     } catch (e) {
         console.error("Onboarding save failed", e);
         setBooting(false);
@@ -344,7 +364,11 @@ export default function App() {
   };
 
   // Show loading screen
-  if (loading || booting) {
+  if (loading) {
+    return <BootScreen />;
+  }
+
+  if (booting) {
     return <BootScreen />;
   }
 
