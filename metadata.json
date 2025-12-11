@@ -1,0 +1,7 @@
+{
+  "name": "Quantum",
+  "description": "Google Maps for Careers — A voice-first career navigation system. Speak to an AI counsellor that plans your skill path, salary growth, migration cost, and course ROI.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}

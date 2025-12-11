@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="https://upload.wikimedia.org/wikipedia/commons/8/8a/Google_Gemini_logo.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Career CoPilot</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              background: '#F8FAFC', // Slate 50
+              surface: '#FFFFFF', // White
+              primary: '#2563EB', // Blue 600
+              secondary: '#0EA5E9', // Sky 500
+              accent: '#6366F1', // Indigo 500
+              quantum: {
+                 neon: "#2563EB",
+                 lime: "#0EA5E9",
+                 light: "#60A5FA",
+                 bg: "#F8FAFC",
+                 panel: "#FFFFFF",
+              },
+              slate: {
+                800: '#1E293B', 
+                900: '#0F172A',
+              }
+            },
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+              display: ['Space Grotesk', 'sans-serif'],
+            },
+            boxShadow: {
+              glass: '0 8px 32px 0 rgba(0, 0, 0, 0.05)',
+              'glass-hover': '0 20px 40px 0 rgba(37, 99, 235, 0.1)',
+              'neon': '0 4px 14px 0 rgba(37, 99, 235, 0.3)', // Soft blue shadow
+              'neon-cyan': '0 4px 14px 0 rgba(14, 165, 233, 0.3)',
+              'neon-strong': '0 6px 20px rgba(37, 99, 235, 0.4)',
+            },
+            animation: {
+              'float': 'float 8s ease-in-out infinite',
+              'pulse-slow': 'pulse 6s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+              'aurora': 'aurora 10s linear infinite',
+            },
+            keyframes: {
+              float: {
+                '0%, 100%': { transform: 'translateY(0)' },
+                '50%': { transform: 'translateY(-20px)' },
+              },
+              aurora: {
+                '0%': { transform: 'rotate(0deg) scale(1)' },
+                '50%': { transform: 'rotate(180deg) scale(1.1)' },
+                '100%': { transform: 'rotate(360deg) scale(1)' },
+              }
+            }
+          },
+        },
+      }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+      body {
+        font-family: 'Inter', sans-serif;
+        background-color: #F8FAFC;
+        color: #0F172A; /* Slate 900 */
+        overflow-x: hidden;
+      }
+      
+      /* Premium Scrollbar */
+      ::-webkit-scrollbar {
+        width: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #F1F5F9;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #CBD5E1;
+        border-radius: 4px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #2563EB;
+      }
+      
+      /* Cinematic Glassmorphism - Light Panels */
+      .glass-panel-premium {
+        background: rgba(255, 255, 255, 0.7);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid rgba(226, 232, 240, 0.8); /* Slate 200 */
+        box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.05);
+        position: relative;
+        overflow: hidden;
+      }
+      
+      .glass-panel-premium::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 0; right: 0; height: 1px;
+        background: linear-gradient(90deg, transparent, rgba(37, 99, 235, 0.2), transparent);
+        opacity: 0.6;
+      }
+
+      .text-glow {
+        text-shadow: 0 0 1px rgba(37, 99, 235, 0.1); /* Very subtle or removed for light mode */
+        color: #2563EB;
+      }
+      
+      /* Liquid Gradients */
+      .aurora-gradient {
+        background: radial-gradient(circle at 50% 50%, rgba(37, 99, 235, 0.05), transparent 60%),
+                    radial-gradient(circle at 80% 20%, rgba(14, 165, 233, 0.05), transparent 50%);
+        filter: blur(60px);
+      }
+      
+      .no-scrollbar::-webkit-scrollbar {
+        display: none;
+      }
+      .no-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+      }
+      
+      /* Glass Card 3D Effect */
+      .glass-card-3d {
+        background: rgba(255, 255, 255, 0.8);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(226, 232, 240, 1);
+        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+      }
+      .glass-card-3d:hover {
+        transform: translateY(-5px) scale(1.02);
+        box-shadow: 0 20px 40px -10px rgba(37, 99, 235, 0.15);
+        border-color: rgba(37, 99, 235, 0.4);
+        background: #ffffff;
+      }
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@^19.2.1",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.1/",
+    "react/": "https://esm.sh/react@^19.2.1/",
+    "@google/genai": "https://esm.sh/@google/genai@^1.32.0",
+    "react-router-dom": "https://esm.sh/react-router-dom@^7.10.1",
+    "framer-motion": "https://esm.sh/framer-motion@^12.23.26",
+    "lucide-react": "https://esm.sh/lucide-react@^0.559.0",
+    "recharts": "https://esm.sh/recharts@^3.5.1",
+    "react-dom": "https://esm.sh/react-dom@^19.2.1",
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@^2.87.1",
+    "vite": "https://esm.sh/vite@^7.2.7",
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>
